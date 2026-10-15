@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Water tracker</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap">
+<style>
+:root{
+  --bg:#eef6f8; --surface:#ffffff; --ink:#12323a; --muted:#5b7a82;
+  --water:#2aa3c4; --water-deep:#16799a; --line:#cfe3e8; --accent:#12323a; --on-accent:#ffffff;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0c1a1f; --surface:#132a31; --ink:#e4f3f6; --muted:#8fb0b8;
+    --water:#3bb8da; --water-deep:#2a8fb0; --line:#24434c; --accent:#e4f3f6; --on-accent:#0c1a1f;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0c1a1f; --surface:#132a31; --ink:#e4f3f6; --muted:#8fb0b8;
+  --water:#3bb8da; --water-deep:#2a8fb0; --line:#24434c; --accent:#e4f3f6; --on-accent:#0c1a1f;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Outfit",system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+main{max-width:420px;margin:0 auto;padding:24px 20px 40px;display:flex;flex-direction:column;align-items:center;gap:20px}
+h1{font-size:1.25rem;font-weight:600;margin:0;align-self:flex-start}
+.glass-wrap{position:relative;width:200px;height:280px}
+.glass-wrap svg{width:100%;height:100%;display:block}
+.level{transition:transform .6s cubic-bezier(.3,.8,.3,1)}
+.count{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;text-align:center}
+.count b{font-size:3.4rem;line-height:1;font-weight:700}
+.count span{font-size:.95rem;color:var(--ink);opacity:.8}
+.status{margin:0;text-align:center;font-size:1.05rem;min-height:1.5em}
+.actions{display:flex;gap:12px;width:100%}
+button{font:inherit;cursor:pointer;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);padding:14px 18px;min-height:48px}
+button:focus-visible{outline:3px solid var(--water);outline-offset:2px}
+button.primary{flex:1;background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600;font-size:1.1rem}
+button.primary:active{transform:scale(.98)}
+button:disabled{opacity:.45;cursor:default}
+.card{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px}
+.goal{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.goal label{font-weight:600}
+.stepper{display:flex;align-items:center;gap:10px}
+.stepper button{padding:0;width:44px;height:44px;border-radius:50%;font-size:1.3rem}
+.stepper output{min-width:2.5ch;text-align:center;font-weight:700;font-size:1.2rem}
+.week{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;height:110px;margin-top:12px}
+.day{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.bar{width:100%;max-width:34px;background:var(--line);border-radius:8px 8px 4px 4px;min-height:4px}
+.bar.hit{background:var(--water)}
+.bar.today{outline:2px solid var(--water-deep);outline-offset:2px}
+.day small{color:var(--muted);font-size:.8rem}
+.card h2{margin:0;font-size:1rem}
+.note{color:var(--muted);font-size:.85rem;margin:10px 0 0}
+.reset{background:none;border:none;color:var(--muted);text-decoration:underline;min-height:44px}
+.top{display:flex;align-items:center;justify-content:space-between;width:100%}
+.top button{padding:8px 14px}
+.stats{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:-8px 0 0;font-size:.9rem;color:var(--muted)}
+.stats span{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 12px}
+select{font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:8px 12px;min-height:44px}
+select:focus-visible{outline:3px solid var(--water);outline-offset:2px}
+.wave{animation:drift 3.2s linear infinite}
+@keyframes drift{to{transform:translateX(120px)}}
+.drop{opacity:0;fill:var(--water-deep)}
+.drop.go{animation:fall .7s ease-in forwards}
+@keyframes fall{0%{transform:translateY(-6px);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translateY(150px);opacity:0}}
+.count b{display:inline-block}
+.count b.bump{animation:bump .35s ease-out}
+@keyframes bump{40%{transform:scale(1.25)}}
+.glass-wrap.cheer{animation:cheer .9s ease-out}
+@keyframes cheer{40%{transform:scale(1.06);filter:drop-shadow(0 0 22px var(--water))}}
+.dot{position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;pointer-events:none;animation:burst .9s ease-out forwards}
+@keyframes burst{to{transform:translate(var(--x),var(--y)) scale(.3);opacity:0}}
+.dd{position:absolute;left:calc(50% + var(--ox));top:6px;width:8px;height:11px;margin-left:-4px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:var(--water-deep);opacity:0;pointer-events:none;animation:dfall .6s ease-in var(--delay) forwards}
+@keyframes dfall{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(var(--fall));opacity:1}}
+.sp{position:absolute;left:calc(50% + var(--ox));top:var(--y);width:5px;height:5px;margin:-3px 0 0 -3px;border-radius:50%;background:var(--water-deep);pointer-events:none;animation:splash .45s ease-out forwards}
+@keyframes splash{0%{transform:translate(0,0);opacity:1}50%{transform:translate(calc(var(--sx)*.6),-20px);opacity:1}100%{transform:translate(var(--sx),0);opacity:0}}
+.cf{position:fixed;top:-14px;width:10px;height:14px;pointer-events:none;z-index:30;animation:cfall 3s linear forwards}
+@keyframes cfall{to{transform:translate(var(--dx),110vh) rotate(var(--rot))}}
+.party{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;z-index:40;pointer-events:none}
+.party[hidden]{display:none}
+.party-card{pointer-events:auto;text-align:center;background:var(--surface);color:var(--ink);border:2px solid var(--water);border-radius:22px;padding:22px 28px;max-width:320px;box-shadow:0 12px 40px rgba(0,0,0,.25);animation:pop .55s cubic-bezier(.2,1.4,.4,1)}
+.party-card strong{display:block;font-size:1.6rem;margin-bottom:6px}
+.party-card span{color:var(--muted)}
+@keyframes pop{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}
+.streakbtn{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 14px;min-height:44px;font:inherit;font-size:.9rem;font-weight:600;color:var(--ink)}
+.streakbtn:hover{border-color:var(--water)}
+.sheet{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;background:rgba(8,20,25,.55);padding:16px}
+.sheet[hidden]{display:none}
+.sheet-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:20px;animation:rise .3s ease-out}
+@keyframes rise{from{transform:translateY(30px);opacity:0}}
+.sheet-card h2{margin:0 0 8px;font-size:1.1rem}
+.big{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+.big b{font-size:3rem;line-height:1;color:var(--water-deep)}
+.srow{display:flex;justify-content:space-between;margin:6px 0;color:var(--muted)}
+.srow b{color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(10,1fr);gap:6px;margin:14px 0 4px}
+.gd{aspect-ratio:1;border-radius:50%;background:var(--line)}
+.gd.hit{background:var(--water)}
+.gd.today{outline:2px solid var(--water-deep);outline-offset:2px}
+.sheet-card .primary{width:100%;margin-top:10px}
+.fire{font-size:2.4rem;line-height:1;display:inline-block;animation:flicker 1.2s ease-in-out infinite alternate}
+@keyframes flicker{to{transform:scale(1.12) rotate(-4deg)}}
+@media (prefers-reduced-motion: reduce){.level{transition:none}.wave,.drop.go,.count b.bump,.glass-wrap.cheer,.dot,.dd,.sp,.cf,.party-card,.sheet-card,.fire{animation:none}}
+</style>
+</head>
+<body>
+<main>
+  <header class="top"><h1>Water today</h1><button id="theme" aria-label="Switch between light and dark theme">Light / dark</button></header>
+
+  <div class="glass-wrap">
+    <svg viewBox="0 0 200 280" aria-hidden="true">
+      <defs><clipPath id="inside"><path d="M24 10 H176 L160 262 Q159 272 149 272 H51 Q41 272 40 262 Z"/></clipPath></defs>
+      <g clip-path="url(#inside)">
+        <rect x="0" y="0" width="200" height="280" fill="var(--surface)"/>
+        <g class="level" id="level" style="transform:translateY(272px)">
+          <rect x="-20" y="8" width="240" height="300" fill="var(--water)" opacity=".9"/>
+          <g class="wave"><path d="M-140 8 Q-110 0 -80 8 T-20 8 T40 8 T100 8 T160 8 T220 8 T280 8 T340 8 V30 H-140Z" fill="var(--water-deep)" opacity=".35"/></g>
+        </g>
+      </g>
+      <path d="M24 10 H176 L160 262 Q159 272 149 272 H51 Q41 272 40 262 Z" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linejoin="round"/>
+      <path class="drop" id="drop" d="M100 0 C106 9 109 13 109 17 A9 9 0 0 1 91 17 C91 13 94 9 100 0Z"/>
+    </svg>
+    <div class="count"><b id="num">0</b><span id="of">of 8 glasses</span></div>
+  </div>
+
+  <p class="status" id="status" aria-live="polite"></p>
+  <p class="stats"><span id="ml"></span><button type="button" class="streakbtn" id="streak" aria-haspopup="dialog"></button></p>
+
+  <div class="actions">
+    <button class="primary" id="add">Add a glass</button>
+    <button id="undo" aria-label="Remove last glass">Undo</button>
+  </div>
+
+  <section class="card goal">
+    <label for="goalval">Daily goal (glasses)</label>
+    <div class="stepper">
+      <button id="gminus" aria-label="Lower goal">−</button>
+      <output id="goalval">8</output>
+      <button id="gplus" aria-label="Raise goal">+</button>
+    </div>
+  </section>
+
+  <section class="card goal">
+    <label for="size">Glass size</label>
+    <select id="size">
+      <option value="150">150 ml</option>
+      <option value="200">200 ml</option>
+      <option value="250">250 ml</option>
+      <option value="300">300 ml</option>
+      <option value="500">500 ml</option>
+    </select>
+  </section>
+
+  <section class="card">
+    <h2>Last 7 days</h2>
+    <div class="week" id="week"></div>
+    <p class="note">Filled bars reached the goal. Data stays on this device.</p>
+  </section>
+
+  <button class="reset" id="reset">Clear today</button>
+  <div class="party" id="party" hidden><div class="party-card"><strong>Goal reached! 🎉</strong><span id="partymsg"></span></div></div>
+  <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheettitle">
+    <div class="sheet-card">
+      <h2 id="sheettitle">Your streak</h2>
+      <div class="big"><span class="fire" aria-hidden="true">🔥</span><b id="curst">0</b><span id="curlabel">days in a row</span></div>
+      <p class="srow"><span>Best streak</span><b id="bestst">0</b></p>
+      <p class="srow"><span>Goal days in the last 30</span><b id="hit30">0</b></p>
+      <div class="grid" id="grid"></div>
+      <p class="note">Each dot is a day. Filled dots reached your goal.</p>
+      <button class="primary" id="sheetclose">Close</button>
+    </div>
+  </div>
+</main>
+
+<script>
+(function(){
+  var KEY="water-tracker:v1";
+  var state={goal:8,days:{},size:250,theme:null};
+  try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&typeof p==="object"){state.goal=+p.goal||8;state.days=p.days||{};state.size=+p.size||250;state.theme=(p.theme==="dark"||p.theme==="light")?p.theme:null;}}}catch(e){}
+
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+  function keyFor(d){var m=d.getMonth()+1,day=d.getDate();return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(day<10?"0":"")+day;}
+  function todayKey(){return keyFor(new Date());}
+  function count(k){return state.days[k]||0;}
+  function streak(){
+    var s=0,d=new Date();
+    if(count(keyFor(d))<state.goal)d.setDate(d.getDate()-1);
+    while(count(keyFor(d))>=state.goal){s++;d.setDate(d.getDate()-1);}
+    return s;
+  }
+  function applyTheme(){var r=document.documentElement;if(state.theme)r.setAttribute("data-theme",state.theme);else r.removeAttribute("data-theme");}
+
+  var $=function(id){return document.getElementById(id);};
+
+  function render(){
+    var k=todayKey(),n=count(k),g=state.goal;
+    $("num").textContent=n;
+    $("of").textContent="of "+g+(g===1?" glass":" glasses");
+    $("goalval").textContent=g;
+    var pct=Math.min(n/g,1);
+    // glass interior spans y=10..272 (262 tall); translate the water layer
+    $("level").style.transform="translateY("+(272-pct*262)+"px)";
+    var s;
+    if(n===0) s="Tap the button after each glass.";
+    else if(n<g) s=(g-n)+(g-n===1?" glass":" glasses")+" to go.";
+    else if(n===g) s="Goal reached. Nice work.";
+    else s="Goal reached, plus "+(n-g)+" extra.";
+    $("status").textContent=s;
+    $("ml").textContent=(n*state.size)+" of "+(g*state.size)+" ml";
+    var st=streak();
+    $("streak").textContent=st>0?"🔥 "+st+" day streak":"No streak yet";
+    $("size").value=String(state.size);
+    $("undo").disabled=n===0;
+    $("reset").disabled=n===0;
+    $("gminus").disabled=g<=1;
+    $("gplus").disabled=g>=20;
+
+    var wk=$("week");wk.innerHTML="";
+    var names=["S","M","T","W","T","F","S"];
+    for(var i=6;i>=0;i--){
+      var d=new Date();d.setDate(d.getDate()-i);
+      var dk=keyFor(d),c=count(dk);
+      var col=document.createElement("div");col.className="day";
+      var bar=document.createElement("div");
+      bar.className="bar"+(c>=g?" hit":"")+(i===0?" today":"");
+      bar.style.height=Math.max(4,Math.min(c/g,1)*80)+"px";
+      bar.title=c+" glasses";
+      var lab=document.createElement("small");lab.textContent=names[d.getDay()];
+      col.appendChild(bar);col.appendChild(lab);wk.appendChild(col);
+    }
+  }
+
+  var reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function splash(ox,y){
+    var wrap=document.querySelector(".glass-wrap");
+    for(var j=0;j<4;j++){
+      var s=document.createElement("span");s.className="sp";
+      s.style.setProperty("--ox",ox+"px");s.style.setProperty("--y",y+"px");
+      s.style.setProperty("--sx",((j-1.5)*16+(Math.random()*8-4))+"px");
+      wrap.appendChild(s);
+      setTimeout((function(el){return function(){el.remove();};})(s),500);
+    }
+  }
+  function droplets(){
+    var wrap=document.querySelector(".glass-wrap");
+    var pct=Math.min(count(todayKey())/state.goal,1),surf=272-pct*262+8;
+    for(var i=0;i<5;i++){
+      (function(i){
+        var ox=Math.round(Math.random()*60-30),delay=i*90;
+        var d=document.createElement("span");d.className="dd";
+        d.style.setProperty("--ox",ox+"px");
+        d.style.setProperty("--fall",Math.max(20,surf-14)+"px");
+        d.style.setProperty("--delay",delay+"ms");
+        wrap.appendChild(d);
+        setTimeout(function(){d.remove();splash(ox,surf);},delay+600);
+      })(i);
+    }
+  }
+  function celebrate(){
+    var n=count(todayKey());
+    $("partymsg").textContent=n+(n===1?" glass":" glasses")+" and "+(n*state.size)+" ml today. Well done!";
+    var p=$("party");p.hidden=false;
+    clearTimeout(celebrate.t);celebrate.t=setTimeout(function(){p.hidden=true;},3800);
+    if(reduce)return;
+    confetti();
+    var cols=["#2aa3c4","#16799a","#7fd6ea","#f2c14e","#ef6f6c","#8bd17c"];
+    for(var i=0;i<70;i++){
+      var c=document.createElement("i");c.className="cf";
+      c.style.left=(Math.random()*100)+"vw";
+      c.style.background=cols[i%cols.length];
+      c.style.setProperty("--dx",(Math.random()*120-60)+"px");
+      c.style.setProperty("--rot",(Math.random()*900-450)+"deg");
+      c.style.animationDuration=(2.2+Math.random()*1.6)+"s";
+      c.style.animationDelay=(Math.random()*0.6)+"s";
+      if(i%3===0)c.style.borderRadius="50%";
+      document.body.appendChild(c);
+      setTimeout((function(el){return function(){el.remove();};})(c),4800);
+    }
+  }
+  $("party").onclick=function(){this.hidden=true;};
+  function dayNum(k){var p=k.split("-");return Math.round(Date.UTC(+p[0],+p[1]-1,+p[2])/86400000);}
+  function bestStreak(){
+    var ns=[];
+    for(var k in state.days){if(state.days[k]>=state.goal)ns.push(dayNum(k));}
+    ns.sort(function(a,b){return a-b;});
+    var best=0,run=0;
+    for(var i=0;i<ns.length;i++){run=(i>0&&ns[i]-ns[i-1]===1)?run+1:1;if(run>best)best=run;}
+    return best;
+  }
+  function openStreak(){
+    var cur=streak();
+    $("curst").textContent=cur;
+    $("curlabel").textContent=cur===1?"day in a row":"days in a row";
+    $("bestst").textContent=bestStreak();
+    var g=$("grid");g.innerHTML="";var hits=0;
+    for(var i=29;i>=0;i--){
+      var d=new Date();d.setDate(d.getDate()-i);
+      var c=count(keyFor(d)),hit=c>=state.goal,dot=document.createElement("span");
+      if(hit)hits++;
+      dot.className="gd"+(hit?" hit":"")+(i===0?" today":"");
+      dot.title=keyFor(d)+": "+c+(c===1?" glass":" glasses");
+      g.appendChild(dot);
+    }
+    $("hit30").textContent=hits;
+    $("sheet").hidden=false;$("sheetclose").focus();
+  }
+  function closeSheet(){if(!$("sheet").hidden){$("sheet").hidden=true;$("streak").focus();}}
+  $("streak").onclick=openStreak;
+  $("sheetclose").onclick=closeSheet;
+  $("sheet").onclick=function(e){if(e.target===this)closeSheet();};
+  document.addEventListener("keydown",function(e){if(e.key==="Escape")closeSheet();});
+  function replay(el,cls){el.classList.remove(cls);void el.getBoundingClientRect();el.classList.add(cls);}
+  function confetti(){
+    var wrap=document.querySelector(".glass-wrap"),cols=["#2aa3c4","#16799a","#7fd6ea","#f2c14e"];
+    for(var i=0;i<16;i++){
+      var d=document.createElement("span");d.className="dot";
+      var a=Math.PI*2*i/16,r=90+Math.random()*50;
+      d.style.setProperty("--x",Math.cos(a)*r+"px");
+      d.style.setProperty("--y",Math.sin(a)*r+"px");
+      d.style.background=cols[i%cols.length];
+      wrap.appendChild(d);
+      setTimeout((function(el){return function(){el.remove();};})(d),1000);
+    }
+    replay(wrap,"cheer");
+  }
+  $("add").onclick=function(){
+    var k=todayKey(),next=count(k)+1;
+    state.days[k]=next;save();render();
+    if(!reduce){replay($("drop"),"go");replay($("num"),"bump");droplets();}
+    if(next===state.goal)celebrate();
+  };
+  $("undo").onclick=function(){var k=todayKey();state.days[k]=Math.max(0,count(k)-1);save();render();};
+  $("reset").onclick=function(){state.days[todayKey()]=0;save();render();};
+  $("gminus").onclick=function(){state.goal=Math.max(1,state.goal-1);save();render();};
+  $("gplus").onclick=function(){state.goal=Math.min(20,state.goal+1);save();render();};
+  $("size").onchange=function(){state.size=+this.value||250;save();render();};
+  $("theme").onclick=function(){
+    var dark=state.theme?state.theme==="dark":(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches);
+    state.theme=dark?"light":"dark";applyTheme();save();
+  };
+  applyTheme();
+
+  render();
+})();
+</script>
+</body>
+</html>
